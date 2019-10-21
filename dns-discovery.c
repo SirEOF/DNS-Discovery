@@ -28,6 +28,7 @@ copyfree   : beer license, if you like this, buy me a beer
 
 struct dns_discovery_args dd_args;
 pthread_mutex_t mutexsum;
+//多线程的互斥量，所有线程都必须通过“先用锁把变量锁住--->然后进行操作（共享资源）--->操作完了之后再释放掉锁”的过程来进行。所有线程都只有这一把锁！！！
 
 void
 cleanup()
@@ -56,10 +57,10 @@ usage()
 {
     SAY("usage: ./dns-discovery <domain> [options]\n"
         "options:\n"
-        "\t-w <wordlist file> (default : " DEFAULT_WL ")\n"
-        "\t-t <threads> (default : 1)\n"
+        "\t-w <wordlist file> (default : %s)\n"
+        "\t-t <threads> (default : %d)\n"
         "\t-r <regular report file>\n"
-        "\t-c <csv report file>\n\n");
+        "\t-c <csv report file>\n\n",DEFAULT_WL,DEFAULT_THREAD_NUMBER);
 
     exit(EXIT_SUCCESS);
 }
@@ -72,7 +73,7 @@ parse_args(int argc, char ** argv)
     if (argc < 2) 
         usage();
     dd_args.domain = argv[1];
-    dd_args.nthreads = 1;
+    dd_args.nthreads = DEFAULT_THREAD_NUMBER;//修改默认线程数
     SAY("DOMAIN: %s\n", dd_args.domain);
     argc--;
     argv++;
@@ -110,6 +111,9 @@ parse_args(int argc, char ** argv)
     return wordlist;
 }
 
+//结构体类似java中的对象属性
+//addrinfo来自头文件#include<netdb.h>
+//https://www.jianshu.com/p/df165c54d0b2
 int
 count_addrinfo(struct addrinfo * host)
 {
@@ -135,6 +139,8 @@ compare_ai_addr(struct addrinfo * host1, struct addrinfo * host2)
         case AF_INET6: size = sizeof (struct sockaddr_in6); break;
     }
     
+	//memcmp存在于string.h中
+	//-> 用户结构体中取具体的变量值，类似于java中取对象的属性值。
     if (memcmp(host1->ai_addr, host2->ai_addr, size) == 0)           
         return true;
     
@@ -165,6 +171,7 @@ compare_hosts(struct addrinfo * host1, struct addrinfo * host2)
 
 void
 wildcard_detect()
+//检测泛解析
 {
     char rand_str[LEN], hostname[MAX];
     struct addrinfo * rand_res;
@@ -180,6 +187,7 @@ wildcard_detect()
     gen_randstr(rand_str, SIZERANDSTR);
     snprintf (hostname, sizeof hostname, "%s.%s", rand_str, dd_args.domain);
     // check for host not found error pls
+    // 所以还是使用了getaddrinfo函数，没有办法指定远程DNS服务器，如果再VPS上使用还是可以的，不影响本地的DNS解析
     if (getaddrinfo(hostname, NULL, &hints, &rand_res) == 0)
 	dd_args.wildcard = rand_res;
     else dd_args.wildcard = NULL;
@@ -222,15 +230,17 @@ resolve_lookup(const char * hostname)
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags |= AI_CANONNAME;
-
+	
+	//多线程部分，#include <pthread.h>
     if (getaddrinfo(hostname, NULL, &hints, &res) == 0) {
-        pthread_mutex_lock(&mutexsum);
+        pthread_mutex_lock(&mutexsum);//1、上锁
 
 	if (!compare_hosts(res, dd_args.wildcard))
-	    print_resolve_lookup(hostname, res);
+	    print_resolve_lookup(hostname, res);//2、操作共享资源，
+		//这里的共享资源居然不是wordlist？
 
     	freeaddrinfo(res);
-        pthread_mutex_unlock(&mutexsum);
+        pthread_mutex_unlock(&mutexsum);//3、解锁
     }
 }
 
@@ -239,9 +249,11 @@ dns_discovery(FILE * file, const char * domain)
 {
     char line[LEN];
     char hostname[MAX];
-
+	
+	//fgets来自于<stdio.h>,用于从指定流中读取一行，如果行的长度超过了LEN，超出的部分会被丢弃
     while (fgets(line, sizeof line, file) != NULL) {
         chomp(line);
+		//字符串拼接 hostname=line+"."+domain，#include <stdio.h>
         snprintf(hostname, sizeof hostname, "%s.%s", line, domain);
         resolve_lookup(hostname);
     }
@@ -258,9 +270,12 @@ dns_discovery_thread(void * args)
 
 int
 main(int argc, char ** argv) 
+//int main(int argc, char *argv[])
+//int main(int argc, char argv[][])
+//一定程度上它们是等价的，初期可以这样理解
 {
     int i;
-    char hostname[MAX];
+    char hostname[MAX];//相当于声明一个字符串String
     pthread_t * threads;
     FILE * wordlist;
 
@@ -280,11 +295,11 @@ main(int argc, char ** argv)
 
     threads = (pthread_t *) ck_malloc(dd_args.nthreads * sizeof(pthread_t)); 
  
-    for (i = 0; i < dd_args.nthreads; i++) {
+    for (i = 0; i < dd_args.nthreads; i++) {//创建线程
         if (pthread_create(&threads[i], NULL, dns_discovery_thread, (void *)wordlist) != 0)
             error("pthread_create");
     }
-    for (i = 0; i < dd_args.nthreads; i++) {
+    for (i = 0; i < dd_args.nthreads; i++) {//等待线程结束
         pthread_join(threads[i], NULL);
     }
   

@@ -1,6 +1,7 @@
 #define LEN 256
 #define MAX 512
 #define DEFAULT_WL "wordlist.wl"
+#define DEFAULT_THREAD_NUMBER 10000
 #define SIZERANDSTR 30
 
 #define SAY(args...)\
