@@ -1,4 +1,6 @@
-Introduction.
+### Introduction
+
+copy from https://github.com/m0nad/DNS-Discovery
 
 DNS-Discovery is a multithreaded subdomain bruteforcer meant to be
 used by pentesters during the initial stages of testing.
@@ -9,63 +11,30 @@ DNS-Discovery resolve and display IPv4 and IPv6.  It's similar to others
 tools, like dnsmap, but multithreaded.
 It was tested in GNU/Linux 2.6.38 and FreeBSD 8.1-STABLE.
 
-Download
-
-http://dns-discovery.googlecode.com
 
 
-Compiling
+### Compiling
 
 $ make 
 
-
-Usage
+### Usage
 
 usage: ./dns-discovery <domain> [options]
 options:
 	-w <wordlist file> (default : wordlist.wl)
-	-t <threads> (default : 1)
+	-t <threads> (default : 10000)
 	-r <regular report file>
 	-c <csv report file>
 
 ex:
 $ ./dns-discovery google.com -w wordlist -t 5 -r reportfile
-   ___  _  ______    ___  _                              
-  / _ \/ |/ / __/___/ _ \(_)__ _______ _  _____ ______ __
- / // /    /\ \/___/ // / (_-</ __/ _ \ |/ / -_) __/ // /
-/____/_/|_/___/   /____/_/___/\__/\___/___/\__/_/  \_, / 
-                                                  /___/  
-        by m0nad
-
-DOMAIN: google.com
-THREADS: 5
-REPORT: reportfile
-WORDLIST: wordlist
-
-accounts.google.com
-IPv4 address: 209.85.195.84
-
-ads.google.com
-IPv4 address: 72.14.204.112
-
-ipv6.google.com
-IPv6 address: 2001:4860:b009::68
-
-...
 
 
-Similar tools
 
-dnsmap
-http://dnsmap.googlecode.com/
+### 我的修改
 
-fierce
-http://ha.ckers.org/fierce/
+1、将默认线程数改为10000，并且添加了一些注释说明
 
-dnsenum
-http://dnsenum.googlecode.com/
+2、【TODO】支持一次性跑多个域名
 
-
-Feedback
-
-You can send me a email to: m0nad at email.com
+3、更新默认字典为大字典
