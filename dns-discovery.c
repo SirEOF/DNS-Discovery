@@ -233,7 +233,7 @@ resolve_lookup(const char * hostname)
 	
 	//多线程部分，#include <pthread.h>
     if (getaddrinfo(hostname, NULL, &hints, &res) == 0) {
-        //pthread_mutex_lock(&mutexsum);//1、上锁
+        pthread_mutex_lock(&mutexsum);//1、上锁
 
 	if (!compare_hosts(res, dd_args.wildcard))
 	    print_resolve_lookup(hostname, res);//2、操作共享资源，
@@ -254,10 +254,10 @@ dns_discovery(FILE * file, const char * domain)
     char hostname[MAX];
 	
 	//fgets来自于<stdio.h>,用于从指定流中读取一行，如果行的长度超过了LEN，超出的部分会被丢弃
+	//C.11 makes thread safety guarantees on file operations
     while (fgets(line, sizeof line, file) != NULL) {
         chomp(line);
 		//字符串拼接 hostname=line+"."+domain，#include <stdio.h>
-		pthread_mutex_lock(&mutexsum);
         snprintf(hostname, sizeof hostname, "%s.%s", line, domain);
         resolve_lookup(hostname);
     }

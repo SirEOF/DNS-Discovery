@@ -84,24 +84,20 @@ typedef struct
     unsigned char *name;
     struct QUESTION *ques;
 } QUERY;
- 
-int main( int argc , char *argv[])
+
+void
+chomp(char * str)
 {
-    unsigned char hostname[100];
- 
-    //Get the DNS servers from the resolv.conf file
-    //get_dns_servers();
-     
-    //Get the hostname from the terminal
-    //printf("Enter Hostname to Lookup : ");
-    //scanf("%s" , hostname);
-     
-    //Now get the ip of this hostname , A record
-    ngethostbyname(argv[1] , T_A);
- 
-    return 0;
+  while (*str) {
+    if (*str == '\n' || *str == '\r') {
+      *str = 0;
+      return;
+    }
+    str++;
+  }
 }
  
+ pthread_mutex_t mutexsum;
 /*
  * Perform a DNS query by sending a packet
  * */
@@ -118,7 +114,7 @@ void ngethostbyname(unsigned char *host , int query_type)
     struct DNS_HEADER *dns = NULL;
     struct QUESTION *qinfo = NULL;
  
-    printf("Resolving %s" , host);
+    printf("%s" , host);
  
     s = socket(AF_INET , SOCK_DGRAM , IPPROTO_UDP); //UDP packet for DNS queries
  
@@ -154,22 +150,23 @@ void ngethostbyname(unsigned char *host , int query_type)
     qinfo->qtype = htons( query_type ); //type of the query , A , MX , CNAME , NS etc
     qinfo->qclass = htons(1); //its internet (lol)
  
-    printf("\nSending Packet...");
+	pthread_mutex_lock(&mutexsum);//1、上锁
+    //printf("\nSending Packet...");
     if( sendto(s,(char*)buf,sizeof(struct DNS_HEADER) + (strlen((const char*)qname)+1) + sizeof(struct QUESTION),0,(struct sockaddr*)&dest,sizeof(dest)) < 0)
     {
         perror("sendto failed");
     }
-    printf("Done");
+    //printf("Done");
      
     //Receive the answer
     i = sizeof dest;
-    printf("\nReceiving answer...");
+    //printf("\nReceiving answer...");
 	//recvfrom 从socket接收数据
     if(recvfrom (s,(char*)buf , 65536 , 0 , (struct sockaddr*)&dest , (socklen_t*)&i ) < 0)
     {
         perror("recvfrom failed");
     }
-    printf("Done");
+    //printf("Done");
  
     dns = (struct DNS_HEADER*) buf;
  
@@ -208,27 +205,29 @@ void ngethostbyname(unsigned char *host , int query_type)
     }
  
     //print answers
-    printf("\nAnswer Records : %d \n" , ntohs(dns->ans_count) );
+    //printf("\nAnswer Records : %d \n" , ntohs(dns->ans_count) );
     for(i=0 ; i < ntohs(dns->ans_count) ; i++)
     {
-        printf("Name : %s ",answers[i].name);
+        printf(" %s ",answers[i].name);
  
         if( ntohs(answers[i].resource->type) == T_A) //IPv4 address
         {
             long *p;
             p=(long*)answers[i].rdata;
             a.sin_addr.s_addr=(*p); //working without ntohl
-            printf("has IPv4 address : %s",inet_ntoa(a.sin_addr));
+            printf(" %s",inet_ntoa(a.sin_addr));
         }
          
         if(ntohs(answers[i].resource->type)==5) 
         {
             //Canonical name for an alias
-            printf("has alias name : %s",answers[i].rdata);
+            printf(" %s",answers[i].rdata);
         }
  
         printf("\n");
     }
+	
+	pthread_mutex_unlock(&mutexsum);//3、解锁
     return;
 }
  
@@ -312,4 +311,44 @@ void ChangetoDnsNameFormat(unsigned char* dns,unsigned char* host)
         }
     }
     *dns++='\0';
+}
+
+
+void 
+dns_discovery(FILE * file)
+{
+    char line[256];
+    char hostname[512];
+	
+	//fgets来自于<stdio.h>,用于从指定流中读取一行，如果行的长度超过了LEN，超出的部分会被丢弃
+	//C.11 makes thread safety guarantees on file operations
+    while (fgets(line, sizeof line, file) != NULL) {
+        chomp(line);
+		//字符串拼接 hostname=line+"."+domain，#include <stdio.h>
+        snprintf(hostname, sizeof hostname, "%s.%s", line, "jr.jd.com");
+        ngethostbyname(hostname,T_A);
+    }
+}
+ 
+int main( int argc , char *argv[])
+{	
+	int i;
+	pthread_t * threads;
+	threads = (pthread_t * ) malloc(10000 * sizeof(pthread_t)); 
+	FILE * wordlist = fopen("wordlist.wl", "r");
+	//int pthread_create(pthread_t * thread, const pthread_arrt_t* attr,void*(*start_routine)(void *), void* arg);
+	//thread参数是新线程的标识符,为一个整型。
+	//attr参数用于设置新线程的属性。给传递NULL表示设置为默认线程属性。
+	//start_routine和arg参数分别指定新线程将运行的函数和参数。start_routine返回时,这个线程就退出了
+    for (i = 0; i < 10000; i++) {//创建线程
+        if (pthread_create(&threads[i], NULL, dns_discovery, (void *)wordlist) != 0)
+            error("pthread_create");
+    }
+    for (i = 0; i < 10000; i++) {//等待线程结束
+        pthread_join(threads[i], NULL);
+    }
+  
+    free(threads);
+    fclose(wordlist);
+    return 0;
 }
