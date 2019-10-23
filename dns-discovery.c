@@ -233,11 +233,14 @@ resolve_lookup(const char * hostname)
 	
 	//多线程部分，#include <pthread.h>
     if (getaddrinfo(hostname, NULL, &hints, &res) == 0) {
-        pthread_mutex_lock(&mutexsum);//1、上锁
+        //pthread_mutex_lock(&mutexsum);//1、上锁
 
 	if (!compare_hosts(res, dd_args.wildcard))
 	    print_resolve_lookup(hostname, res);//2、操作共享资源，
 		//这里的共享资源居然不是wordlist？
+		//这里的共享资源应该是hostname，它是通过指针传递进来的，而res是本地变量
+		//这里的逻辑似乎有问题，对hostname的读取采用了互斥锁，而写入却没有
+		//https://blog.csdn.net/skyroben/article/details/72850109
 
     	freeaddrinfo(res);
         pthread_mutex_unlock(&mutexsum);//3、解锁
@@ -254,6 +257,7 @@ dns_discovery(FILE * file, const char * domain)
     while (fgets(line, sizeof line, file) != NULL) {
         chomp(line);
 		//字符串拼接 hostname=line+"."+domain，#include <stdio.h>
+		pthread_mutex_lock(&mutexsum);
         snprintf(hostname, sizeof hostname, "%s.%s", line, domain);
         resolve_lookup(hostname);
     }
@@ -294,7 +298,11 @@ main(int argc, char ** argv)
     }
 
     threads = (pthread_t *) ck_malloc(dd_args.nthreads * sizeof(pthread_t)); 
- 
+	
+	//int pthread_create(pthread_t * thread, const pthread_arrt_t* attr,void*(*start_routine)(void *), void* arg);
+	//thread参数是新线程的标识符,为一个整型。
+	//attr参数用于设置新线程的属性。给传递NULL表示设置为默认线程属性。
+	//start_routine和arg参数分别指定新线程将运行的函数和参数。start_routine返回时,这个线程就退出了
     for (i = 0; i < dd_args.nthreads; i++) {//创建线程
         if (pthread_create(&threads[i], NULL, dns_discovery_thread, (void *)wordlist) != 0)
             error("pthread_create");

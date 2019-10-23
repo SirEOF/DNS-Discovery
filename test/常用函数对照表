@@ -1,2 +1,4 @@
 C的函数 -- Java或python中的函数
-strtok  -- split
+strtok  -- split 字符串分割
+snprintf -- join 字符串拼接
+chomp  --  trim 去除换行符
