@@ -10,6 +10,7 @@
 #include<arpa/inet.h> //inet_addr , inet_ntoa , ntohs etc
 #include<netinet/in.h>
 #include<unistd.h>    //getpid
+#include <pthread.h>
  
 //List of DNS Servers registered on the system
 char dns_servers[10][100];
@@ -85,8 +86,7 @@ typedef struct
     struct QUESTION *ques;
 } QUERY;
 
-void
-chomp(char * str)
+void chomp(char * str)
 {
   while (*str) {
     if (*str == '\n' || *str == '\r') {
@@ -108,7 +108,7 @@ void ngethostbyname(unsigned char *host , int query_type)
  
     struct sockaddr_in a;
  
-    struct RES_RECORD answers[20],auth[20],addit[20]; //the replies from the DNS server
+    struct RES_RECORD answers[20]; //the replies from the DNS server
     struct sockaddr_in dest;
  
     struct DNS_HEADER *dns = NULL;
@@ -314,8 +314,7 @@ void ChangetoDnsNameFormat(unsigned char* dns,unsigned char* host)
 }
 
 
-void 
-dns_discovery(FILE * file)
+void dns_discovery(FILE * file)
 {
     char line[256];
     char hostname[512];
