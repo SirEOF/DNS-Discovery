@@ -13,6 +13,8 @@ pthread_mutex_t mutexsum;
 通过多线程通过fgets函数从文件中读取内容，从输出结果和原始文件进行对比
 输出条目个数和原始文件中行数相等，表明是线程安全的。
 
+//C.11 makes thread safety guarantees on file operations
+
 */
 
 //该函数在本程序下无用
@@ -24,9 +26,8 @@ void ngethostbyname(unsigned char *host , int query_type)
     return;
 }
 
-
-void
-chomp(char * str)
+//该函数的作用是去除换行符，类似java中的trim()
+void chomp(char * str)
 {
   while (*str) {
     if (*str == '\n' || *str == '\r') {
