@@ -114,7 +114,7 @@ void ngethostbyname(unsigned char *host , int query_type)
     struct DNS_HEADER *dns = NULL;
     struct QUESTION *qinfo = NULL;
  
-    printf("%s" , host);
+    //printf("%s" , host);
  
     s = socket(AF_INET , SOCK_DGRAM , IPPROTO_UDP); //UDP packet for DNS queries
  
@@ -206,26 +206,37 @@ void ngethostbyname(unsigned char *host , int query_type)
  
     //print answers
     //printf("\nAnswer Records : %d \n" , ntohs(dns->ans_count) );
+	char outputline[512];
+	snprintf(outputline, 512, "%s", host);
+	char tmp[512];
+		
     for(i=0 ; i < ntohs(dns->ans_count) ; i++)
     {
-        printf(" %s ",answers[i].name);
- 
+        //printf(" %s ",answers[i].name);
         if( ntohs(answers[i].resource->type) == T_A) //IPv4 address
         {
             long *p;
             p=(long*)answers[i].rdata;
             a.sin_addr.s_addr=(*p); //working without ntohl
-            printf(" %s",inet_ntoa(a.sin_addr));
+            //printf(" %s",inet_ntoa(a.sin_addr));
+			snprintf(tmp, 512, "%s", outputline);
+			snprintf(outputline, 512, "%s--%s", tmp, inet_ntoa(a.sin_addr));
+			//printf("%s\n",outputline);
         }
          
         if(ntohs(answers[i].resource->type)==5) 
         {
             //Canonical name for an alias
-            printf(" %s",answers[i].rdata);
+            //printf(" %s",answers[i].rdata);
+			snprintf(tmp, 512, "%s", outputline);
+			snprintf(outputline, 512, "%s--%s", tmp, answers[i].rdata);
+			//printf("%s\n",outputline);
         }
- 
-        printf("\n");
+		//printf("11111%s",outputline);
+		printf("\n");
     }
+	printf("%s",outputline);
+    printf("\n");
 	
 	pthread_mutex_unlock(&mutexsum);//3、解锁
     return;
@@ -328,26 +339,8 @@ void dns_discovery(FILE * file)
         ngethostbyname(hostname,T_A);
     }
 }
- 
-int main( int argc , char *argv[])
-{	
-	int i;
-	pthread_t * threads;
-	threads = (pthread_t * ) malloc(10000 * sizeof(pthread_t)); 
+
+int main( int argc , char *argv[]){
 	FILE * wordlist = fopen("wordlist.wl", "r");
-	//int pthread_create(pthread_t * thread, const pthread_arrt_t* attr,void*(*start_routine)(void *), void* arg);
-	//thread参数是新线程的标识符,为一个整型。
-	//attr参数用于设置新线程的属性。给传递NULL表示设置为默认线程属性。
-	//start_routine和arg参数分别指定新线程将运行的函数和参数。start_routine返回时,这个线程就退出了
-    for (i = 0; i < 10000; i++) {//创建线程
-        if (pthread_create(&threads[i], NULL, dns_discovery, (void *)wordlist) != 0)
-            error("pthread_create");
-    }
-    for (i = 0; i < 10000; i++) {//等待线程结束
-        pthread_join(threads[i], NULL);
-    }
-  
-    free(threads);
-    fclose(wordlist);
-    return 0;
+	dns_discovery(wordlist);
 }

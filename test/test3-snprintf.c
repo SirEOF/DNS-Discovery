@@ -28,5 +28,17 @@ int main(int argc, char argv)
  printf("str1 to str2 %s\n", str2);
  //OK
  
+ char outputline[512];
+ char tmp[512];
+
+ snprintf(outputline, 512, "%s", "111");
+ int i=5;
+ while (i >0){
+	snprintf(tmp, 512, "%s", outputline);
+	snprintf(outputline, 512, "%s--%s", tmp, "AAA");
+	i--;
+ }
+ printf("outputline %s\n", outputline);
+ 
  return 0;
 }
